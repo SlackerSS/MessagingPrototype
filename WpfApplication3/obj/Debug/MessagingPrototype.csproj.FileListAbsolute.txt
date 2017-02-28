@@ -1,0 +1,6 @@
+c:\users\chris l\documents\visual studio 2015\Projects\WpfApplication3\WpfApplication3\bin\Debug\MessagingPrototype.exe.config
+c:\users\chris l\documents\visual studio 2015\Projects\WpfApplication3\WpfApplication3\obj\Debug\MessagingPrototype.csprojResolveAssemblyReference.cache
+c:\users\chris l\documents\visual studio 2015\Projects\WpfApplication3\WpfApplication3\obj\Debug\MainWindow.g.cs
+c:\users\chris l\documents\visual studio 2015\Projects\WpfApplication3\WpfApplication3\obj\Debug\App.g.cs
+c:\users\chris l\documents\visual studio 2015\Projects\WpfApplication3\WpfApplication3\obj\Debug\MessagingPrototype_MarkupCompile.cache
+c:\users\chris l\documents\visual studio 2015\Projects\WpfApplication3\WpfApplication3\obj\Debug\MessagingPrototype_MarkupCompile.lref
