@@ -10,14 +10,15 @@ namespace MessagingServer
 {
     class Program
     {
-
+        private static HttpServer _currentHttpServer;
         static void Main(string[] args)
         {
-
+            InitalizeServer();
         }
 
-        private void StartServer()
+        private static void InitalizeServer()
         {
+            _currentHttpServer = new HttpServer(3333);
         }
     }
 }

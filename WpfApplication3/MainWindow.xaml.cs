@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -12,6 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using MessagingServer;
 
 namespace MessagingPrototype
 {
@@ -21,20 +23,46 @@ namespace MessagingPrototype
     public partial class MainWindow : Window
     {
         private const string VersionString = "0.1";
-        private Version _versionNumber;
+
+        private HttpClient client;
 
         public static RichTextBox MessagingBox;
         public MainWindow()
         {
-            _versionNumber = Version.Parse(VersionString);
+            var _versionNumber = Version.Parse(VersionString);
             InitializeComponent();
             MessengerWindow.Title = string.Format("Prototype Messenger v{0}", _versionNumber);
-            MessagingBox = messagingBox;
+            InitalizeClientConnection();
         }
 
         public static void AppendToTextBox(string msg)
         {
-            MessagingBox.AppendText(msg + "\r\n");
+            HttpServer.AppendToTextBox(msg, MessagingBox);
+        }
+
+        private void InitalizeClientConnection()
+        {
+            client = new HttpClient(80);
+        }
+
+
+        private void SendButton_Click(object sender, RoutedEventArgs e)
+        {
+            var text = string.Empty;
+            if ((text = new TextRange(messagingBox.Document.ContentStart, messagingBox.Document.ContentEnd).Text).Length > 0 && !string.IsNullOrWhiteSpace(text))
+            {
+                client.SendMessage(text);
+            }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+
+            if (client._clientSocket != null && client._clientSocket.Connected )
+            {
+                client._clientSocket.Close();
+            }
         }
     }
 }
