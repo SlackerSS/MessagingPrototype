@@ -51,7 +51,7 @@ namespace MessagingPrototype
             var text = string.Empty;
             if ((text = new TextRange(messagingBox.Document.ContentStart, messagingBox.Document.ContentEnd).Text).Length > 0 && !string.IsNullOrWhiteSpace(text))
             {
-                client.GenerateMessage(text);
+                client.SendMessage(client.GenerateMessageHandler(text, 100, 101));
             }
         }
 
