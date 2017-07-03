@@ -11,6 +11,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Net.Sockets;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using MessagingServer;
@@ -42,7 +43,8 @@ namespace MessagingPrototype
 
         private void InitalizeClientConnection()
         {
-            client = new HttpClient(80);
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            client = new HttpClient(80, ref socket);
         }
 
 
@@ -51,7 +53,7 @@ namespace MessagingPrototype
             var text = string.Empty;
             if ((text = new TextRange(messagingBox.Document.ContentStart, messagingBox.Document.ContentEnd).Text).Length > 0 && !string.IsNullOrWhiteSpace(text))
             {
-                client.SendMessage(client.GenerateMessageHandler(text, 100, 101));
+                client.SendMessage(client.GenerateMessageHandler(text, "127.0.0.1", "127.0.0.1"));
             }
         }
 

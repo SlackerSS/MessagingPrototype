@@ -12,7 +12,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using MessagingServer.Users;
 using MessagingServer.Users.Base;
-
+using ExtensionMethods;
+using Socket = System.Net.Sockets.Socket;
 using Application = System.Windows.Forms.Application;
 using MessageBox = System.Windows.Forms.MessageBox;
 using RichTextBox = System.Windows.Controls.RichTextBox;
@@ -21,68 +22,70 @@ namespace MessagingServer
 {
     public class HttpServer
     {
-        /// <summary>
-        /// private instance of repository/database
-        /// </summary>
+        public static int portNumber = 8888;
+
+        private static IPAddress _ipAddress;
+
         private Repository Repo;
-        /// <summary>
-        /// Port number that server will be instantiated on (ex 80)
-        /// </summary>
+
         private readonly int _portNumber;
 
-        /// <summary>
-        /// private socket for server
-        /// </summary>
-        private Socket _serverSocket;
-        /// <summary>
-        /// private gobal instance for client socket
-        /// </summary>
-        private Socket _clientSocket;
-        private byte[] buffer;
+        private static int ClientsConnected;
 
-        /// <summary>
-        /// Manual Reset Event for handeling events
-        /// </summary>
+        private List <Thread> _serverThreads;
+
+        private List<Tuple<Socket, int>> _serverSockets;
+
+        private List<Socket> _clientSockets;
+
         private static ManualResetEvent resetEvent;
 
-        /// <summary>
-        /// Initializes server information
-        /// </summary>
-        /// <param name="portNumber">Number for server port</param>
         public HttpServer(int portNumber)
         {
-            Repo = new Repository();
-            resetEvent = new ManualResetEvent(false);
-            _portNumber = portNumber;
-            var serverThread = new Thread(new ThreadStart(StartServer));
-            serverThread.Start();
+            try
+            {
+                resetEvent = new ManualResetEvent(true);
+                _serverSockets = new List<Tuple<Socket, int>>();
+                _clientSockets = new List<Socket>();
+                Console.WriteLine("Starting server");
+                Repo = new Repository();
+                resetEvent = new ManualResetEvent(false);
+                _portNumber = portNumber;
+                _ipAddress = Dns.GetHostEntry(IPAddress.Loopback).AddressList[0].MapToIPv4();
+                Console.WriteLine($"On IP {_ipAddress} on port {portNumber}");
+                Thread t = new Thread(() => StartServer());
+                t.Start();
+            }
+            catch(Exception e)
+            {
+                MessageBox.Show(e.Message);
+            }
         }
 
-        /// <summary>
-        /// Begin listening for client requests
-        /// </summary>
+
         public void StartServer()
         {
+            _serverThreads = new List<Thread>();
             //TODO: Allow server to handle multiple client requests at same time
             try
             {
-                    _serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    _serverSocket.Bind(new IPEndPoint(IPAddress.Any, _portNumber));
-                    _serverSocket.Listen(100);
                     while (true)
                     {
+                        _serverSockets.Add(Tuple.Create(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), portNumber));
+                        _serverSockets.LastOrDefault().Item1.Bind(new IPEndPoint(IPAddress.Any, _portNumber));
+                        _serverSockets.LastOrDefault().Item1.Listen(100);
                         resetEvent.Reset();
 
                         Console.WriteLine("waiting for client connection");
-                        _serverSocket.BeginAccept(new AsyncCallback(AcceptClientStream), 
-                            _serverSocket);
+                        _serverSockets.LastOrDefault().Item1.BeginAccept(new AsyncCallback(AcceptClientStream),
+                        _serverSockets.LastOrDefault().Item1);
 
                         resetEvent.WaitOne();
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Error in start server", MessageBoxButtons.OKCancel, MessageBoxIcon.Error);
                 } 
         }
 
@@ -93,26 +96,24 @@ namespace MessagingServer
         public void AcceptClientStream(IAsyncResult AR)
         {
             Console.WriteLine("Accepted client connection");
+            byte[] buffer;
             resetEvent.Set();
             try
             {
-                _clientSocket = _serverSocket.EndAccept(AR);
-                buffer = new byte[_clientSocket.ReceiveBufferSize];
-                _clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None,
-                    new AsyncCallback(RecieveCallBack), _clientSocket);
-                _serverSocket.BeginAccept(new AsyncCallback(AcceptClientStream), 
-                            _serverSocket);
+                var serverSocket = (Socket) AR.AsyncState;
+                var clientSocket = serverSocket.EndAccept(AR);
+                _clientSockets.Add(clientSocket);
+                buffer = new byte[clientSocket.ReceiveBufferSize];
+                clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None,
+                    new AsyncCallback(RecieveCallBack), Tuple.Create(clientSocket, serverSocket, buffer));
+                clientSocket.BeginAccept(new AsyncCallback(AcceptClientStream),
+                            serverSocket);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Error in AcceptClientStream", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        public void AcceptClientData()
-        {
-            //TODO: Accept all client data as MessagePackage and send to second client
-        }
+        } 
 
         /// <summary>
         /// Recieve callback data from client stream
@@ -122,21 +123,27 @@ namespace MessagingServer
         {
             try
             {
-                int recieved = _clientSocket.EndReceive(AR);
+                var tuple = (Tuple<Socket, Socket, byte[]>)AR.AsyncState;
+                var clientSocket = tuple.Item1;
+                var serverSocket = tuple.Item2;
+                var buffer = tuple.Item3;
+                var recieved = clientSocket.EndReceive(AR);
 
                 if (recieved == 0)
                 {
                     return;
                 }
 
-                //MessageHandler handler = new MessageHandler();
+                MessageHandler handler = null;
 
                 Array.Resize(ref buffer, recieved);
-                string text = Encoding.ASCII.GetString(buffer, 0, buffer.Length);
-                Console.WriteLine(text);
-                Array.Resize(ref buffer, _clientSocket.ReceiveBufferSize);
-                _clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None,
-                    new AsyncCallback(RecieveCallBack), _clientSocket);
+                string message = Encoding.ASCII.GetString(buffer, 0, buffer.Length);
+                handler = message.FromJson<MessageHandler>();
+                Console.WriteLine($"text: {handler.message} from: {handler.fromID} to: {handler.toID}");
+                SendToClient(handler, serverSocket);
+                Array.Resize(ref buffer, clientSocket.ReceiveBufferSize);
+                clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None,
+                    new AsyncCallback(RecieveCallBack), Tuple.Create(clientSocket, serverSocket, buffer));
             }
             catch (Exception ex)
             {
@@ -148,12 +155,12 @@ namespace MessagingServer
         /// Send message as MessageHandler to desired client
         /// </summary>
         /// <param name="message"></param>
-        public void SendToClient(MessageHandler message)
+        public void SendToClient(MessageHandler message, Socket serverSocket)
         {
-            var buffer = message.ToByteArray();
+            var buffer = Encoding.ASCII.GetBytes(message.message);
             //TODO: Check if client socket is connected if not stall message
-            _serverSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, new IPEndPoint(Repo.Find(6499).IpAddress, 3332),
-                new AsyncCallback(SendToClientCallBack), null);
+            serverSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, new IPEndPoint(IPAddress.Loopback, 1025),
+                new AsyncCallback(SendToClientCallBack), serverSocket);
         }
 
         /// <summary>
@@ -162,7 +169,8 @@ namespace MessagingServer
         /// <param name="AR">Result from stream</param>
         public void SendToClientCallBack(IAsyncResult AR)
         {
-            _serverSocket.EndSend(AR);
+            var serverSocket = (Socket)AR.AsyncState;
+            var result = serverSocket.EndSend(AR);
         }
         /// <summary>
         /// Used for debugging append text to client box

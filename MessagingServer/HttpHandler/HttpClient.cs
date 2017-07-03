@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Web.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -10,16 +11,13 @@ using System.Windows;
 using System.Windows.Controls;
 using MessagingServer.Users.Base;
 using System.Runtime.Serialization.Formatters.Binary;
+using ExtensionMethods;
 using Application = System.Windows.Forms.Application;
 
 namespace MessagingServer
 {
     public class HttpClient
     {        
-        /// <summary>
-        /// Connector used to connect client to database
-        /// </summary>
-        private Connector _currentConnector = null;
         
         /// <summary>
         /// Current application user
@@ -39,26 +37,43 @@ namespace MessagingServer
         /// </summary>
         public Socket _clientSocket;
 
+        /// <summary>
+        /// Reference instance used for server socket
+        /// </summary>
+        public Socket _serverSocket;
+
         //ManualResetEvent for Sending
-        private static ManualResetEvent sendDone;
+        private ManualResetEvent sendDone;
         //Manual reset event for connect done
-        private static ManualResetEvent connectDone;
+        private ManualResetEvent connectDone;
         //Manual reset event for recieve done
-        private static ManualResetEvent recieveDone;
+        private ManualResetEvent recieveDone;
 
         //Sending address
         public string sendAddress;
 
-        public HttpClient(int portNumber)
+        public HttpClient(int portNumber, ref Socket serverSocket)
         {
+            _serverSocket = serverSocket;
             BeginConnection(portNumber);
+            sendDone = new ManualResetEvent(true);
+            connectDone = new ManualResetEvent(true);
+            recieveDone = new ManualResetEvent(true);
         }
 
+        /// <summary>
+        /// Begin connection to HttpServer using PortNumber
+        /// <para>
+        /// Currently connected to loopback
+        /// </para>
+        /// </summary>
+        /// <param name="port">Port Number to begin connection to server</param>
         public void BeginConnection(int port)
         {
+                Connector _currentConnector;
                 try
                 {
-                    using (_currentConnector = new Connector(IPAddress.Loopback.ToString(), 3333))
+                    using (_currentConnector = new Connector(IPAddress.Loopback.ToString(), 8888))
                     {
                         _clientSocket = new Socket(_currentConnector.familyType, _currentConnector.socketType,
                             _currentConnector.protocolType);
@@ -66,12 +81,12 @@ namespace MessagingServer
                             new IPEndPoint(_currentConnector.serverIp, _currentConnector.portNumber),
                             new AsyncCallback(FinalizeClientConnection), _clientSocket);
 
-                        connectDone.WaitOne();
+                        //connectDone.WaitOne();
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, Application.ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"There was an issue beginning the connection \n {ex.Message}", Application.ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
                 }
         }
 
@@ -83,58 +98,47 @@ namespace MessagingServer
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format("There was an issue finalizing client connection, Error Message \n {0)", 
+                MessageBox.Show(string.Format("There was an issue finalizing client connection, Error Message \n {0})", 
                     ex.Message), Application.ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        public void SendMessage(MessageHandler Message)
+        public void SendMessage(MessageHandler message)
         {
             try
             {
-                var buffer = Message.ToByteArray();
+                var json = message.ToJSON();
+                var buffer = ASCIIEncoding.ASCII.GetBytes(json);
                 _clientSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None,
                         new AsyncCallback(BeginSendCallBack), null);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, Application.ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error in SendMessage function, Error message {ex.Message}", Application.ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void BeginSendCallBack(IAsyncResult AR)
         {
+            try
+            {
                 _clientSocket.EndSend(AR);
+            }catch(Exception ex)
+            {
+                MessageBox.Show($"Somehow this issue occurs in BeginSendCallBack {ex.Message}");
+            }
         }
 
-        public MessageHandler GenerateMessageHandler(string text, short from, short to)
+        public MessageHandler GenerateMessageHandler(string text, string from, string to)
         {
-            return new MessageHandler(from, to, text);
+            return new MessageHandler()
+            {
+                fromID = from,
+                toID = to,
+                message = text
+            };
         }
 
-    }
-
-    /// <summary>
-    /// Class used to send messages to recepent
-    /// </summary>
-    public class Sender : IDisposable
-    {
-        public short UserIdTo;
-        public short UserIdFrom;
-        //TODO: Convert to type object for multiple message types
-        public string message;
-        public Sender(short UserIdTo, short UserIdFrom, string Message)
-        {
-            this.UserIdTo = UserIdTo;
-            this.UserIdFrom = UserIdFrom;
-            message = Message;
-        }
-
-        public void Dispose()
-        {
-            UserIdTo = 0;
-            message = string.Empty;
-        }
     }
 
     //TODO: Add HTTP Headers for client connection
@@ -143,24 +147,27 @@ namespace MessagingServer
     /// </summary>
     public class Connector : IDisposable
     {
-        public int portNumber;
-        public IPAddress serverIp;
-        public AddressFamily familyType;
-        public SocketType socketType;
-        public ProtocolType protocolType;
+        public int portNumber { get; private set; }
+        public IPAddress serverIp { get; private set; }
+        public IPAddress localIp { get; private set; }
+        public AddressFamily familyType { get; private set; }
+        public SocketType socketType { get; private set; }
+        public ProtocolType protocolType { get; private set; }
 
         public Connector(string ipAddres, int portNumber)
         {
             this.portNumber = portNumber;
             this.serverIp = IPAddress.Parse(ipAddres);
-            familyType = AddressFamily.InterNetwork;
-            socketType = SocketType.Stream;
-            protocolType = ProtocolType.Tcp;
+            this.familyType = AddressFamily.InterNetwork;
+            this.socketType = SocketType.Stream;
+            this.protocolType = ProtocolType.Tcp;
         }
 
         public void Dispose()
         {
             serverIp = null;
+            portNumber = 0;
+            localIp = null;
         }
     }
 }

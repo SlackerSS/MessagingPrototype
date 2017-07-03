@@ -13,12 +13,12 @@ namespace MessagingServer
         private static HttpServer _currentHttpServer;
         static void Main(string[] args)
         {
-            InitalizeServer();
+            InitalizeServer(8888);
         }
 
-        private static void InitalizeServer()
+        private static void InitalizeServer(int portNumber)
         {
-            _currentHttpServer = new HttpServer(3333);
+            _currentHttpServer = new HttpServer(portNumber);
         }
     }
 }

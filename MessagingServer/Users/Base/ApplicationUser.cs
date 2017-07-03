@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace MessagingServer.Users.Base
 {
-    class ApplicationUser
+    public class ApplicationUser
     {
         public string UserName;
         public IPAddress IpAddress;
@@ -22,7 +23,7 @@ namespace MessagingServer.Users.Base
             set { _id = value; }
         }
 
-        public ApplicationUser(string userName, string ipAddress, short idNumber)
+        public ApplicationUser(string userName, string ipAddress, string idNumber)
         {
             this.UserName = userName;
             this.IpAddress = IPAddress.Parse(ipAddress);

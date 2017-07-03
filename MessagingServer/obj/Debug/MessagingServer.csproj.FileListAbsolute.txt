@@ -3,4 +3,9 @@ C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\Messaging
 C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\MessagingServer.pdb
 C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\obj\Debug\MessagingServer.exe
 C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\obj\Debug\MessagingServer.pdb
-C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\obj\Debug\MessagingServer.csprojResolveAssemblyReference.cache
+C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\System.Web.Http.dll
+C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\Vse.Web.Serialization.dll
+C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\System.Net.Http.Formatting.dll
+C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\System.Web.Http.xml
+C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\Vse.Web.Serialization.pdb
+C:\Users\Chris L\Documents\Visual Studio 2015\Projects\WpfApplication3\MessagingServer\bin\Debug\System.Net.Http.Formatting.xml
